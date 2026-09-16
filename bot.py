@@ -77,15 +77,17 @@ async def create_jump_channel(message, number):
                 "?entries=" + encoded_entries
             )
 
-        # Send jump-resultatet
-        await channel.send(message.content)
+        # Lav samlet besked
+        content = message.content
 
-        # Send hjul-linket
         if wheel_link:
-            await channel.send(
-                "🎡 **JUMP HJUL**\n"
+            content += (
+                "\n\n🎡 **JUMP HJUL**\n"
                 f"👉 [**ÅBN HJUL**]({wheel_link})"
             )
+
+        # Send resultat + hjul i SAMME besked
+        await channel.send(content)
 
         print(f"Oprettet jump-kanal #{channel_name}")
 

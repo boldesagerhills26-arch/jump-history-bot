@@ -1,6 +1,7 @@
 import os
 import re
 import asyncio
+import urllib.parse
 import discord
 from discord.ext import commands
 from flask import Flask
@@ -14,6 +15,7 @@ app = Flask(__name__)
 
 intents = discord.Intents.default()
 intents.guilds = True
+intents.members = True
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -24,31 +26,70 @@ def home():
     return "Jump History Bot is running!"
 
 
-async def create_jump_channel(result, number):
+async def create_jump_channel(message, number):
     for guild in bot.guilds:
         category = guild.get_channel(CATEGORY_ID)
 
-        if category and isinstance(category, discord.CategoryChannel):
-            channel_name = f"{number:05d}"
+        if not category or not isinstance(category, discord.CategoryChannel):
+            continue
 
-            existing = discord.utils.get(
-                category.channels,
-                name=channel_name
+        channel_name = f"{number:05d}"
+
+        existing = discord.utils.get(
+            category.channels,
+            name=channel_name
+        )
+
+        if existing:
+            channel = existing
+        else:
+            channel = await guild.create_text_channel(
+                channel_name,
+                category=category,
+                reason="Nyt jump afsluttet"
             )
 
-            if existing:
-                channel = existing
-            else:
-                channel = await guild.create_text_channel(
-                    channel_name,
-                    category=category,
-                    reason="Nyt jump afsluttet"
-                )
+        # Find spillere og antal navne
+        pattern = r"<@!?(\d+)>\s+—\s+\*\*(\d+)\s+navne?\*\*"
+        matches = re.findall(pattern, message.content)
 
-            await channel.send(result)
+        wheel_entries = []
 
-            print(f"Oprettet jump-kanal #{channel_name}")
-            return
+        for user_id, amount in matches:
+            try:
+                member = await guild.fetch_member(int(user_id))
+                name = member.display_name
+            except:
+                name = f"Spiller {user_id}"
+
+            for _ in range(int(amount)):
+                wheel_entries.append(name)
+
+        # Lav Wheel of Names-link
+        wheel_link = None
+
+        if wheel_entries:
+            entries = ",".join(wheel_entries)
+            encoded_entries = urllib.parse.quote(entries)
+
+            wheel_link = (
+                "https://wheelofnames.com/"
+                "?entries=" + encoded_entries
+            )
+
+        # Send jump-resultatet
+        await channel.send(message.content)
+
+        # Send hjul-linket
+        if wheel_link:
+            await channel.send(
+                "🎡 **JUMP HJUL**\n"
+                f"👉 [**ÅBN HJUL**]({wheel_link})"
+            )
+
+        print(f"Oprettet jump-kanal #{channel_name}")
+
+        return
 
     print("Kunne ikke finde JUMP HISTORIK-kategorien.")
 
@@ -64,9 +105,11 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
+    # Vi reagerer kun på bot-beskeder
     if not message.author.bot:
         return
 
+    # Skal være et jump-resultat
     if "JUMP #" not in message.content:
         return
 
@@ -78,7 +121,7 @@ async def on_message(message):
     number = int(match.group(1))
 
     asyncio.create_task(
-        create_jump_channel(message.content, number)
+        create_jump_channel(message, number)
     )
 
 

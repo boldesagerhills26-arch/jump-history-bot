@@ -49,7 +49,6 @@ async def create_jump_channel(message, number):
                 reason="Nyt jump afsluttet"
             )
 
-        # Find spillere og antal navne
         pattern = r"<@!?(\d+)>\s+—\s+\*\*(\d+)\s+navne?\*\*"
         matches = re.findall(pattern, message.content)
 
@@ -65,8 +64,7 @@ async def create_jump_channel(message, number):
             for _ in range(int(amount)):
                 wheel_entries.append(name)
 
-        # Lav Wheel of Names-link
-        wheel_link = None
+        content = message.content
 
         if wheel_entries:
             entries = ",".join(wheel_entries)
@@ -77,23 +75,14 @@ async def create_jump_channel(message, number):
                 "?entries=" + encoded_entries
             )
 
-        # Lav samlet besked
-        content = message.content
-
-        if wheel_link:
             content += (
                 "\n\n🎡 **JUMP HJUL**\n"
                 f"👉 [**ÅBN HJUL**]({wheel_link})"
             )
 
-        # Send resultat + hjul i SAMME besked
         await channel.send(content)
 
         print(f"Oprettet jump-kanal #{channel_name}")
-
-        return
-
-    print("Kunne ikke finde JUMP HISTORIK-kategorien.")
 
 
 @bot.event
@@ -107,11 +96,9 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
-    # Vi reagerer kun på bot-beskeder
     if not message.author.bot:
         return
 
-    # Skal være et jump-resultat
     if "JUMP #" not in message.content:
         return
 
@@ -122,9 +109,7 @@ async def on_message(message):
 
     number = int(match.group(1))
 
-    asyncio.create_task(
-        create_jump_channel(message, number)
-    )
+    await create_jump_channel(message, number)
 
 
 def run_webserver():
